@@ -17,6 +17,7 @@ export type Agent = z.infer<typeof AgentSchema>;
 
 const SuggestAgentInputSchema = z.object({
   taskDescription: z.string().describe('The description of the task to be completed.'),
+  // List of currently available/pre-added agents (pass from client)
   agents: z.array(AgentSchema).describe('List of agents available to choose from.'),
 });
 export type SuggestAgentInput = z.infer<typeof SuggestAgentInputSchema>;
@@ -39,17 +40,21 @@ const prompt = ai.definePrompt({
 
 You are given:
 - A task description: {{{taskDescription}}}
-- A list of PRE-ADDED AGENTS the user currently has access to:
+- A list of PRE-ADDED AGENTS the user currently has access to. Each agent has name, url, and optional description:
 
 {{#each agents}}
 - {{this.name}} — {{this.url}}{{#if this.description}} — {{this.description}}{{/if}}
 {{/each}}
 
 INSTRUCTIONS:
-1. Prefer an existing agent if suitable (return its URL).
-2. Otherwise suggest a Google search with site:agent.ai + query.
-3. Always include reasoning.
-4. Output only { suggestedAgentUrl, reasoning }.
+1. FIRST try to choose the best match from the PRE-ADDED AGENTS above. If a pre-added agent is suitable, return that agent's exact URL as suggestedAgentUrl.
+2. If none of the pre-added agents are suitable, produce a reliable external suggestion by forming a Google search URL that searches Agent.ai for relevant agents. Use the format:
+   https://www.google.com/search?q=<encoded site:agent.ai + query>
+   where <query> is a short useful query derived from the task description (e.g., site:agent.ai "video generator" or site:agent.ai "summarize text").
+3. Always include a short reasoning field explaining why you selected that URL, and explicitly say whether the returned URL is from the user's existing list or is a google search fallback.
+4. Do NOT return any internal IDs or extra fields — only suggestedAgentUrl and reasoning.
+
+Return JSON matching the output schema exactly.
 `,
 });
 
@@ -60,11 +65,7 @@ const suggestAgentFlow = ai.defineFlow(
     outputSchema: SuggestAgentOutputSchema,
   },
   async (input) => {
-    // try prompt.run — commonly provided by genkit prompt objects
-    // if ai.generate exists at runtime but types don't include it
-    const result = await (ai as any).generate(prompt, input);
-    return result;
+    const { output } = await prompt(input);
+    return output!;
   }
 );
-
-
