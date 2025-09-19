@@ -3,13 +3,15 @@
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { BrainCircuit, Plus, NotebookText } from 'lucide-react';
-import { Separator } from './ui/separator';
+import { usePathname } from 'next/navigation';
 
 type HeaderProps = {
   onNewTaskClick: () => void;
 };
 
 export function Header({ onNewTaskClick }: HeaderProps) {
+  const pathname = usePathname();
+
   return (
     <header className="sticky top-0 z-10 w-full border-b bg-card shadow-sm">
       <div className="container mx-auto flex h-16 items-center justify-between px-4 md:px-6">
@@ -24,10 +26,14 @@ export function Header({ onNewTaskClick }: HeaderProps) {
               <span className="hidden sm:inline-block">Manage Agents</span>
             </Link>
           </Button>
-          <Button onClick={onNewTaskClick}>
-            <Plus className="h-4 w-4" />
-            <span className="hidden sm:inline-block">New Task</span>
-          </Button>
+
+          {/* Render New Task only on the homepage */}
+          {pathname === '/' && (
+            <Button onClick={onNewTaskClick}>
+              <Plus className="h-4 w-4" />
+              <span className="hidden sm:inline-block">New Task</span>
+            </Button>
+          )}
         </div>
       </div>
     </header>
