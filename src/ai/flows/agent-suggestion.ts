@@ -32,7 +32,7 @@ const prompt = ai.definePrompt({
   output: {schema: SuggestAgentOutputSchema},
   prompt: `You are an AI assistant that suggests appropriate agents (tool URLs) for completing tasks based on the task description.
 
-  Given the following task description, suggest an agent URL better tool you know simple google open like site:agent.ai + 'query thing' that can be used to complete the task.
+  Given the following task description, suggest an agent URL from agent.ai/profile or any better tool you know simple google open like site:agent.ai 'query thing' that can be used to complete the task.
   Also provide a brief reasoning for your suggestion.
 
   Task Description: {{{taskDescription}}}
