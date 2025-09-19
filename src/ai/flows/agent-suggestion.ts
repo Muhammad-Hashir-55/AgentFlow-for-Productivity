@@ -1,23 +1,18 @@
+// src/ai/flows/agent-suggestion.ts
 'use server';
 /**
- * suggestAgentFlow — now accepts the current list of agents so the LLM can choose
- * from existing agents first, or fall back to a site:agent.ai google search if none match.
+ * @fileOverview A flow to suggest an appropriate agent (tool URL) for completing a task based on the task description.
+ *
+ * - suggestAgent - A function that suggests an agent for a given task description.
+ * - SuggestAgentInput - The input type for the suggestAgent function.
+ * - SuggestAgentOutput - The return type for the suggestAgent function.
  */
 
-import { ai } from '@/ai/genkit';
-import { z } from 'genkit';
-
-const AgentSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  url: z.string().url(),
-  description: z.string().optional(),
-});
-export type Agent = z.infer<typeof AgentSchema>;
+import {ai} from '@/ai/genkit';
+import {z} from 'genkit';
 
 const SuggestAgentInputSchema = z.object({
   taskDescription: z.string().describe('The description of the task to be completed.'),
-  agents: z.array(AgentSchema).describe('List of agents available to choose from.'),
 });
 export type SuggestAgentInput = z.infer<typeof SuggestAgentInputSchema>;
 
@@ -33,24 +28,15 @@ export async function suggestAgent(input: SuggestAgentInput): Promise<SuggestAge
 
 const prompt = ai.definePrompt({
   name: 'suggestAgentPrompt',
-  input: { schema: SuggestAgentInputSchema },
-  output: { schema: SuggestAgentOutputSchema },
-  prompt: `You are an AI assistant that suggests appropriate agents (tool URLs) for completing tasks.
+  input: {schema: SuggestAgentInputSchema},
+  output: {schema: SuggestAgentOutputSchema},
+  prompt: `You are an AI assistant that suggests appropriate agents (tool URLs) for completing tasks based on the task description.
 
-You are given:
-- A task description: {{{taskDescription}}}
-- A list of PRE-ADDED AGENTS the user currently has access to:
+  Given the following task description, suggest an agent URL better tool you know simple google open like site:agent.ai + 'query thing' that can be used to complete the task.
+  Also provide a brief reasoning for your suggestion.
 
-{{#each agents}}
-- {{this.name}} — {{this.url}}{{#if this.description}} — {{this.description}}{{/if}}
-{{/each}}
-
-INSTRUCTIONS:
-1. Prefer an existing agent if suitable (return its URL).
-2. Otherwise suggest a Google search with site:agent.ai + query.
-3. Always include reasoning.
-4. Output only { suggestedAgentUrl, reasoning }.
-`,
+  Task Description: {{{taskDescription}}}
+  `,
 });
 
 const suggestAgentFlow = ai.defineFlow(
@@ -59,12 +45,8 @@ const suggestAgentFlow = ai.defineFlow(
     inputSchema: SuggestAgentInputSchema,
     outputSchema: SuggestAgentOutputSchema,
   },
-  async (input) => {
-    // try prompt.run — commonly provided by genkit prompt objects
-    // if ai.generate exists at runtime but types don't include it
-    const result = await (ai as any).generate(prompt, input);
-    return result;
+  async input => {
+    const {output} = await prompt(input);
+    return output!;
   }
 );
-
-

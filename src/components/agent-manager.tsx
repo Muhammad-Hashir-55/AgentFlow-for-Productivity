@@ -50,7 +50,7 @@ export function AgentManager() {
         <CardHeader>
           <CardTitle>Search for Agents</CardTitle>
           <CardDescription>
-            Find new agents on Agent.ai to add to your personalized list.
+            Find new agents on lablab.ai to add to your personalized list.
           </CardDescription>
         </CardHeader>
         <CardContent>
