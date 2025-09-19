@@ -40,7 +40,7 @@ export function AgentManager() {
   
   const handleSearch = () => {
     if (!searchTerm.trim()) return;
-    const query = encodeURIComponent(`site:lablab.ai ${searchTerm}`);
+    const query = encodeURIComponent(`site:agent.ai ${searchTerm}`);
     window.open(`https://www.google.com/search?q=${query}`, '_blank');
   };
 
