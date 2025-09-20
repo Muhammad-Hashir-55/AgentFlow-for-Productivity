@@ -30,7 +30,7 @@ const prompt = ai.definePrompt({
   name: 'suggestAgentPrompt',
   input: {schema: SuggestAgentInputSchema},
   output: {schema: SuggestAgentOutputSchema},
-  prompt: `You are an AI assistant that suggests appropriate agents (tool URLs) for completing tasks based on the task description.
+  prompt: `You are an AI assistant that suggests appropriate agents (tool URLs site:agent.ai + query (which you will decide afer reasonging))  for completing tasks based on the task description.
 
   Given the following task description, suggest any better tool you know simple google open like site:agent.ai 'query thing like eggs refer to grocery and code refers to replit etc. etc. for other stuff' that can be used to complete the task.
   Also provide a brief reasoning for your suggestion.
