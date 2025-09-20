@@ -1,15 +1,17 @@
 // src/ai/flows/agent-suggestion.ts
 'use server';
 /**
- * @fileOverview A flow to suggest an appropriate agent (tool URL) for completing a task based on the task description.
- *
- * - suggestAgent - A function that suggests an agent for a given task description.
- * - SuggestAgentInput - The input type for the suggestAgent function.
- * - SuggestAgentOutput - The return type for the suggestAgent function.
+ * Suggest an agent from local agents first; if none matches, fallback to a site:agent.ai search URL.
  */
 
-import {ai} from '@/ai/genkit';
-import {z} from 'genkit';
+import { z } from 'genkit';
+import { ai } from '@/ai/genkit'; // keep if you still want to use ai elsewhere
+// IMPORT initialAgents from your lib/data.ts
+// If you use TS path alias @ for project root (nextjs typical), use:
+import { initialAgents } from '@/lib/data';
+
+// If you don't use path aliases, use a relative path instead (uncomment if needed):
+// import { initialAgents } from '../../../lib/data';
 
 const SuggestAgentInputSchema = z.object({
   taskDescription: z.string().describe('The description of the task to be completed.'),
@@ -26,18 +28,37 @@ export async function suggestAgent(input: SuggestAgentInput): Promise<SuggestAge
   return suggestAgentFlow(input);
 }
 
-const prompt = ai.definePrompt({
-  name: 'suggestAgentPrompt',
-  input: {schema: SuggestAgentInputSchema},
-  output: {schema: SuggestAgentOutputSchema},
-  prompt: `You are an AI assistant that suggests appropriate agents (tool URLs site:agent.ai + query (which you will decide afer reasonging))  for completing tasks based on the task description.
+/**
+ * Simple scoring: looks for tokens from the taskDescription inside agent.name, agent.description, agent.url.
+ * Returns highest scoring agent if any match exists.
+ */
+function scoreAndPickAgent(taskDescription: string) {
+  const text = taskDescription.toLowerCase();
+  // tokens from description (simple split, could be improved)
+  const tokens = Array.from(new Set(text.split(/[\s,.;:()?]+/).filter(Boolean)));
 
-  Given the following task description, suggest any better tool you know simple google open like site:agent.ai 'query thing like eggs refer to grocery and code refers to replit etc. etc. for other stuff' that can be used to complete the task.
-  Also provide a brief reasoning for your suggestion.
+  let best = { agent: null as (typeof initialAgents)[0] | null, score: 0 };
 
-  Task Description: {{{taskDescription}}}
-  `,
-});
+  for (const agent of initialAgents) {
+    const hay = (agent.name + ' ' + agent.description + ' ' + agent.url).toLowerCase();
+    let score = 0;
+    for (const t of tokens) {
+      if (t.length < 3) continue; // ignore very short tokens
+      if (hay.includes(t)) score += 2; // strong match
+      // partial match
+      else if (hay.split(/\W+/).some(w => w.startsWith(t) && t.length >= 3)) score += 1;
+    }
+
+    // small boost for phrase matches (e.g., "image", "code", "blog")
+    if (text.includes('image') && hay.includes('image')) score += 2;
+    if (text.includes('code') && (hay.includes('code') || hay.includes('replit'))) score += 2;
+    if (text.includes('blog') && hay.includes('blog')) score += 2;
+
+    if (score > best.score) best = { agent, score };
+  }
+
+  return best;
+}
 
 const suggestAgentFlow = ai.defineFlow(
   {
@@ -46,7 +67,27 @@ const suggestAgentFlow = ai.defineFlow(
     outputSchema: SuggestAgentOutputSchema,
   },
   async input => {
-    const {output} = await prompt(input);
-    return output!;
+    const { taskDescription } = input;
+
+    // 1) Try local agents first
+    const best = scoreAndPickAgent(taskDescription);
+
+    if (best.agent && best.score > 0) {
+      const reasoning = `Selected local agent "${best.agent.name}" (score=${best.score}) because its name/description/url contain terms matching the task ("${taskDescription.slice(0, 80)}...").`;
+      return {
+        suggestedAgentUrl: best.agent.url,
+        reasoning,
+      };
+    }
+
+    // 2) Fallback: construct a site:agent.ai google search URL
+    const query = `site:agent.ai ${taskDescription}`;
+    const googleSearchUrl = `https://www.google.com/search?q=${encodeURIComponent(query)}`;
+
+    const reasoning = `No suitable local agent matched the task description. Fallback recommended: search across agent.ai using site:agent.ai + your task description.`;
+    return {
+      suggestedAgentUrl: googleSearchUrl,
+      reasoning,
+    };
   }
 );
